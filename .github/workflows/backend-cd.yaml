@@ -11,6 +11,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: starter/backend
@@ -35,6 +36,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: starter/backend
@@ -83,12 +85,14 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Push image to ECR
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         run: |
           docker tag mp-backend:${{ github.sha }} \
-            066968432975.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }}
+            $ECR_REGISTRY/backend:${{ github.sha }}
 
           docker push \
-            066968432975.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }}
+            $ECR_REGISTRY/backend:${{ github.sha }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -103,6 +107,8 @@ jobs:
 
       - name: Deploy backend
         working-directory: starter/backend/k8s
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         run: |
-          kustomize edit set image backend=066968432975.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }}
+          kustomize edit set image backend=$ECR_REGISTRY/backend:${{ github.sha }}
           kustomize build | kubectl apply -f -
