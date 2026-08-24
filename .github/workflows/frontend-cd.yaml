@@ -11,6 +11,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: starter/frontend
@@ -22,7 +23,7 @@ jobs:
       - name: Setup NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version-file: starter/frontend/.nvmrc
+          node-version: "18"
           cache: npm
           cache-dependency-path: starter/frontend/package-lock.json
 
@@ -34,6 +35,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: starter/frontend
@@ -45,7 +47,7 @@ jobs:
       - name: Setup NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version-file: starter/frontend/.nvmrc
+          node-version: "18"
           cache: npm
           cache-dependency-path: starter/frontend/package-lock.json
 
@@ -53,41 +55,26 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test -- --watchAll=false
+        run: CI=true npm test -- --watchAll=false
 
   build:
     runs-on: ubuntu-latest
     needs: [lint, test]
-    env:
-       REACT_APP_MOVIE_API_URL: http://a19238b0e81d94223b02197da32e6bba-1266631624.us-east-1.elb.amazonaws.com
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup NodeJS
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: starter/frontend/.nvmrc
-          cache: npm
-          cache-dependency-path: starter/frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: starter/frontend
-        run: npm ci
-
-      - name: Run tests
-        working-directory: starter/frontend
-        run: npm test -- --watchAll=false
-
       - name: Build Docker image
         working-directory: starter/frontend
+        env:
+          REACT_APP_MOVIE_API_URL: http://localhost:5000
         run: |
           docker build \
-            --build-arg REACT_APP_MOVIE_API_URL=${REACT_APP_MOVIE_API_URL} \
+            --build-arg REACT_APP_MOVIE_API_URL=$REACT_APP_MOVIE_API_URL \
             --tag mp-frontend:${{ github.sha }} \
             .
-          
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -99,12 +86,14 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Push image to ECR
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         run: |
           docker tag mp-frontend:${{ github.sha }} \
-            066968432975.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
+            $ECR_REGISTRY/frontend:${{ github.sha }}
 
           docker push \
-            066968432975.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
+            $ECR_REGISTRY/frontend:${{ github.sha }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -119,6 +108,8 @@ jobs:
 
       - name: Deploy frontend
         working-directory: starter/frontend/k8s
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         run: |
-          kustomize edit set image frontend=066968432975.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
+          kustomize edit set image frontend=$ECR_REGISTRY/frontend:${{ github.sha }}
           kustomize build | kubectl apply -f -
