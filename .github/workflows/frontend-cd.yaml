@@ -5,19 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'starter/frontend/**'
-
+      - "starter/frontend/**"
   workflow_dispatch:
-
-env:
-  AWS_REGION: us-east-1
-  REACT_APP_MOVIE_API_URL: http://a19238b0e81d94223b02197da32e6bba-1266631624.us-east-1.elb.amazonaws.com
 
 jobs:
   lint:
-    name: Lint Frontend
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: starter/frontend
@@ -40,9 +33,7 @@ jobs:
         run: npm run lint
 
   test:
-    name: Test Frontend
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: starter/frontend
@@ -65,15 +56,10 @@ jobs:
         run: npm test -- --watchAll=false
 
   build:
-    name: Build Frontend
     runs-on: ubuntu-latest
-
-    needs:
-      - lint
-      - test
-
-    outputs:
-      account_id: ${{ steps.aws-account.outputs.account_id }}
+    needs: [lint, test]
+    env:
+       REACT_APP_MOVIE_API_URL: http://a19238b0e81d94223b02197da32e6bba-1266631624.us-east-1.elb.amazonaws.com
 
     steps:
       - name: Checkout code
@@ -90,6 +76,10 @@ jobs:
         working-directory: starter/frontend
         run: npm ci
 
+      - name: Run tests
+        working-directory: starter/frontend
+        run: npm test -- --watchAll=false
+
       - name: Build Docker image
         working-directory: starter/frontend
         run: |
@@ -97,51 +87,24 @@ jobs:
             --build-arg REACT_APP_MOVIE_API_URL=${REACT_APP_MOVIE_API_URL} \
             --tag mp-frontend:${{ github.sha }} \
             .
-
+          
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get AWS Account ID
-        id: aws-account
-        run: |
-          echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+          aws-region: us-east-1
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Push image to ECR
-        env:
-          ACCOUNT_ID: ${{ steps.aws-account.outputs.account_id }}
         run: |
-          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-          docker tag \
-            mp-frontend:${{ github.sha }} \
-            ${ECR_REGISTRY}/frontend:${{ github.sha }}
+          docker tag mp-frontend:${{ github.sha }} \
+            066968432975.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
 
           docker push \
-            ${ECR_REGISTRY}/frontend:${{ github.sha }}
-
-  deploy:
-    name: Deploy Frontend
-    runs-on: ubuntu-latest
-
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+            066968432975.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -152,21 +115,10 @@ jobs:
         run: |
           aws eks update-kubeconfig \
             --name cluster \
-            --region ${{ env.AWS_REGION }}
+            --region us-east-1
 
-      - name: Setup kustomize
-        run: |
-          curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
-          sudo mv kustomize /usr/local/bin/kustomize
-
-      - name: Update image and deploy
+      - name: Deploy frontend
         working-directory: starter/frontend/k8s
-        env:
-          ACCOUNT_ID: ${{ needs.build.outputs.account_id }}
         run: |
-          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-          kustomize edit set image \
-            frontend=${ECR_REGISTRY}/frontend:${{ github.sha }}
-
+          kustomize edit set image frontend=066968432975.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
           kustomize build | kubectl apply -f -
