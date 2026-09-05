@@ -4,16 +4,12 @@ metadata:
   name: backend
   labels:
     app: backend
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "external"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
 spec:
-  type: LoadBalancer
-  loadBalancerClass: service.k8s.aws/nlb
+  type: NodePort
   selector:
     app: backend
   ports:
     - protocol: TCP
       port: 80
       targetPort: 5000
+      nodePort: 31159
