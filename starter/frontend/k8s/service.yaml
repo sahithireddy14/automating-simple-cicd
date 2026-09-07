@@ -6,7 +6,6 @@ metadata:
     app: frontend
 spec:
   type: LoadBalancer
-  loadBalancerClass: eks.amazonaws.com/nlb
   selector:
     app: frontend
   ports:
