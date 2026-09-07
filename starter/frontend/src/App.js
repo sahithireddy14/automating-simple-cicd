@@ -25,3 +25,5 @@ export default function App() {
     </div>
   );
 }
+
+// Frontend deployment refresh
