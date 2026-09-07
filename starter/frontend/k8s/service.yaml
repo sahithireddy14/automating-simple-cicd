@@ -5,11 +5,11 @@ metadata:
   labels:
     app: frontend
 spec:
-  type: NodePort
+  type: LoadBalancer
+  loadBalancerClass: eks.amazonaws.com/nlb
   selector:
     app: frontend
   ports:
     - protocol: TCP
       port: 80
       targetPort: 3000
-      nodePort: 30145

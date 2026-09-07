@@ -1,0 +1,10 @@
+spec:
+  template:
+    spec:
+      containers:
+      - name: controller
+        args:
+        - --cluster-name=cluster
+        - --ingress-class=alb
+        - --aws-vpc-id=vpc-05d6e1243a96c5a89
+        - --aws-region=us-east-1
