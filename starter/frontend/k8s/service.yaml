@@ -4,13 +4,9 @@ metadata:
   name: frontend
   labels:
     app: frontend
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "external"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
   type: LoadBalancer
-  loadBalancerClass: service.k8s.aws/nlb
+  loadBalancerClass: eks.amazonaws.com/nlb
   selector:
     app: frontend
   ports:
