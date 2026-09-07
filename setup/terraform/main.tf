@@ -23,7 +23,9 @@ resource "aws_subnet" "public_subnet" {
   availability_zone       = "us-east-1${var.public_az}"
   map_public_ip_on_launch = true
   tags = {
-    Name = "udacity-public"
+    Name                            = "udacity-private"
+    "kubernetes.io/cluster/cluster" = "shared"
+    "kubernetes.io/role/elb"        = "1"
   }
 }
 
